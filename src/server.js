@@ -91,7 +91,18 @@ async function seedProductsIfNeeded() {
   if (count === 0) {
     await Product.insertMany(productSeed);
     console.log("Seeded initial products");
+    return;
   }
+
+  const ceramicBrewMug = productSeed.find((product) => product.productId === 11);
+  if (!ceramicBrewMug) {
+    return;
+  }
+
+  await Product.updateOne(
+    { productId: ceramicBrewMug.productId },
+    { $set: { img: ceramicBrewMug.img } }
+  );
 }
 
 async function startServer() {
