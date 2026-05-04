@@ -14,40 +14,66 @@ const paymentRoutes = require("./routes/payments");
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const app = express();
-const configuredOrigins = (process.env.CLIENT_URL || "")
-  .split(",")
-  .map((origin) => origin.trim())
-  .filter(Boolean);
+const defaultOrigins = [
+  "https://abhishek-0809h.github.io",
+  "http://localhost:5500",
+  "http://127.0.0.1:5500"
+];
+
+function normalizeOrigin(origin) {
+  if (!origin) {
+    return "";
+  }
+
+  try {
+    return new URL(origin).origin;
+  } catch (error) {
+    return origin.trim().replace(/\/+$/, "");
+  }
+}
+
+const configuredOrigins = [
+  ...new Set(
+    [...defaultOrigins, ...(process.env.CLIENT_URL || "").split(",")]
+      .map((origin) => normalizeOrigin(origin.trim()))
+      .filter(Boolean)
+  )
+];
 
 function isAllowedOrigin(origin) {
   if (!origin) {
     return true;
   }
 
-  if (configuredOrigins.includes(origin)) {
+  const normalizedOrigin = normalizeOrigin(origin);
+
+  if (configuredOrigins.includes(normalizedOrigin)) {
     return true;
   }
 
   try {
-    const { hostname } = new URL(origin);
+    const { hostname } = new URL(normalizedOrigin);
     return hostname === "localhost" || hostname === "127.0.0.1";
   } catch (error) {
     return false;
   }
 }
 
-app.use(
-  cors({
-    origin(origin, callback) {
-      if (isAllowedOrigin(origin)) {
-        return callback(null, true);
-      }
+const corsOptions = {
+  origin(origin, callback) {
+    if (isAllowedOrigin(origin)) {
+      return callback(null, true);
+    }
 
-      return callback(new Error(`Origin ${origin} is not allowed by CORS.`));
-    },
-    credentials: true
-  })
-);
+    return callback(null, false);
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(express.json());
 
 app.get("/api/health", (_req, res) => {
